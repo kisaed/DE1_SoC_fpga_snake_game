@@ -1,2 +1,5 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+
+# SDC constraint files are Tcl-based; tag them so language stats don't mis-tag the repo as 'Stata'.
+*.sdc linguist-language=Tcl
