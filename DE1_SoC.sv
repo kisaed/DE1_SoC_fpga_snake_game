@@ -8,7 +8,7 @@
 // resetting the game using switch 9
 // LED 0 lights up when the game is over
 //
-// The goal is the the snake (green) to eat the apple (red). Everytime the snake eats the apple, it will grow
+// The goal is the snake (green) to eat the apple (red). Everytime the snake eats the apple, it will grow
 // in length by 1. the game will be over if the player hits the side wall or if the snake hits itself. 
 module DE1_SoC (CLOCK_50, GPIO_1, HEX0, HEX1, HEX2, HEX3, HEX4, HEX5, KEY, LEDR, SW); 	
 	input  logic         CLOCK_50; // 50MHz clock.	
