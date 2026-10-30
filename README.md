@@ -6,7 +6,7 @@ A Snake game written in SystemVerilog for a Cyclone V FPGA and a **16 x 16 red/g
 
 [Original course demo (Google Drive)](https://drive.google.com/file/d/1CN-mWC4AAOlfzIJFyAhdpNwsDBxydqpY/view?usp=sharing) · [Architecture](#architecture) · [Run the tests](#run-the-tests) · [Hardware setup](#hardware-setup) · [Known limitations](#known-limitations)
 
-The demo link is taken from the existing [course video document](docs/Video%20Demo.docx); its availability depends on the external file's sharing settings. The original project was built for **EE 271: Digital Circuits and Systems**, University of Washington, by **Ziqian (Kevin) Xu** in 2026.
+The original course demo is hosted externally; its availability depends on the file's sharing settings. The original project was built for **EE 271: Digital Circuits and Systems**, University of Washington, by **Ziqian (Kevin) Xu** in 2026.
 
 ## What the project demonstrates
 
@@ -36,17 +36,17 @@ flowchart LR
     S --> O["LEDR[0] game over"]
 ```
 
-For the detailed signal layout, see the [SVG diagram](docs/layout-diagram.svg) and [original block diagram](docs/Block%20Diagram%20Updated.pdf). Reset/clock connections omitted above are described in [known limitations](#known-limitations).
+Reset/clock connections omitted above are described in [known limitations](#known-limitations).
 
 | Module | Responsibility |
 |---|---|
-| [`DE1_SoC`](DE1_SoC.sv) | Board interface, clock selection, tick edge detector, direction selection, module wiring |
-| [`snake`](snake.sv) | Head/tail updates, occupancy, direction memory, growth, wall/self collision |
-| [`apple`](apple.sv) | Update-edge detection and free-cell search using LFSR candidates |
-| [`LFSR`](LFSR.sv) | Eight-bit XNOR-feedback generator, taps 8/6/5/4 |
-| [`userInput`](userInput.sv) | Input synchronization and rising-edge pulse generation |
-| [`clock_divider`](clock_divider.sv) | Counter bits used as divided clocks |
-| [`LEDDriver`](LEDDriver.sv) | Supplied row-scan driver mapping red/green pixel arrays to GPIO |
+| [`DE1_SoC`](src/DE1_SoC.sv) | Board interface, clock selection, tick edge detector, direction selection, module wiring |
+| [`snake`](src/snake.sv) | Head/tail updates, occupancy, direction memory, growth, wall/self collision |
+| [`apple`](src/apple.sv) | Update-edge detection and free-cell search using LFSR candidates |
+| [`LFSR`](src/LFSR.sv) | Eight-bit XNOR-feedback generator, taps 8/6/5/4 |
+| [`userInput`](src/userInput.sv) | Input synchronization and rising-edge pulse generation |
+| [`clock_divider`](src/clock_divider.sv) | Counter bits used as divided clocks |
+| [`LEDDriver`](src/LEDDriver.sv) | Supplied row-scan driver mapping red/green pixel arrays to GPIO |
 
 ### How the body moves
 
@@ -85,15 +85,15 @@ With the current divider parameters, the nominal hardware game tick is about **2
 
 ## Run the tests
 
-The focused suite was run on **October 29, 2026** using **ModelSim ALTERA STARTER EDITION 10.5b**, installed with the Intel FPGA 17.0 tool distribution. It compiled and completed with **zero errors and zero warnings**. See [verification notes](docs/verification.md) for scope and the reproduced bug.
+The focused suite was run on **October 29, 2026** using **ModelSim ALTERA STARTER EDITION 10.5b**, installed with the Intel FPGA 17.0 tool distribution. It compiled and completed with **zero errors and zero warnings**. The departing-tail regression reproduced the original occupancy overwrite and passes with the corrected assignment order.
 
 From the repository root, with `vsim` on your path:
 
 ```powershell
-vsim -c -do run_regressions.do
+vsim -c -do src/run_regressions.do
 ```
 
-The runner compiles the design and [`tests/regression_testbench.sv`](tests/regression_testbench.sv), runs for a bounded 10 microseconds, checks a completion flag, and returns a nonzero exit status on a failed check or incomplete run.
+The runner compiles the design and [`src/tests/regression_testbench.sv`](src/tests/regression_testbench.sv), runs for a bounded 10 microseconds, checks a completion flag, and returns a nonzero exit status on a failed check or incomplete run. Run both simulator workflows from the repository root; generated simulator files stay outside `src/`.
 
 | Check group | Examples covered |
 |---|---|
@@ -110,19 +110,19 @@ These are directed checks, not exhaustive verification or a physical hardware va
 The original course benches and waveform setups remain available. In the **ModelSim Transcript**, run:
 
 ```tcl
-do runlab.do
-do runlab.do apple
+do src/runlab.do
+do src/runlab.do apple
 ```
 
-The default selects `DE1_SoC_testbench`; an argument selects the corresponding module bench. `runlab.do` opens GUI waveform/structure/signal windows and runs until the bench stops. These older benches are primarily waveform stimuli; use the focused runner above for automatic pass/fail checks.
+The default selects `DE1_SoC_testbench`; an argument selects the corresponding module bench. `src/runlab.do` opens GUI waveform/structure/signal windows and runs until the bench stops. These older benches are primarily waveform stimuli; use the focused runner above for automatic pass/fail checks.
 
-`Launch_ModelSim.bat` is an optional Windows launcher that expects `vsim.exe` on `PATH`; it no longer assumes a personal installation directory.
+`src/Launch_ModelSim.bat` is an optional Windows launcher that expects `vsim.exe` on `PATH` and starts ModelSim with the repository root as its working directory.
 
 ## Hardware setup
 
 1. Use a Terasic **DE1-SoC**, device **5CSEMA5F31C6**, and a compatible **16 x 16 two-color red/green** LED matrix connected to `GPIO_1`.
 2. Open [`DE1_SoC.qpf`](DE1_SoC.qpf) in Quartus with Cyclone V support. The project file records Quartus Prime Lite **17.0**; that is a Quartus version, not a ModelSim version.
-3. Inspect the pin assignments and matrix wiring for your exact hardware. The QSF retains board-template pin assignments; its source list contains the seven design files in this repository.
+3. Inspect the pin assignments and matrix wiring for your exact hardware. The QSF retains board-template pin assignments; its source list points to the seven design files under `src/`.
 4. Compile, inspect diagnostics/timing constraints, and program the board. Recheck reset and display behavior on the board before relying on a new bitstream.
 
 On the hardware path, `ALTERA_RESERVED_QIS` selects `div_clk[9]` as the approximately 48.8 kHz base clock. A second divider uses bit 13 and an edge detector for the game tick. In simulation, the top level uses the testbench clock directly; the benches shorten the second divider.
@@ -140,20 +140,20 @@ No fresh Quartus synthesis, fitting, static timing analysis, FPGA resource measu
 ## Repository guide
 
 ```text
-DE1_SoC.sv                 top-level integration and original game bench
-snake.sv / apple.sv        game state and apple placement
-LFSR.sv / userInput.sv     candidate generator and button processing
-clock_divider.sv           clock-divider counters
-LEDDriver.sv               supplied display driver and its original benches
-DE1_SoC.qpf / .qsf         Quartus project and board assignments
-DE1_SoC_golden_top.sdc     original board-template constraints
-run_regressions.do         automatic pass/fail ModelSim runner
-tests/                    focused self-checking regressions
-runlab.do / *_wave.do      original GUI waveform workflow
-docs/                     original reports, diagrams, demo link, verification notes
+DE1_SoC.qpf / .qsf             Quartus project and board assignments
+DE1_SoC_golden_top.sdc         original board-template constraints
+src/
+  DE1_SoC.sv                  top-level integration and original game bench
+  snake.sv / apple.sv         game state and apple placement
+  LFSR.sv / userInput.sv      candidate generator and button processing
+  clock_divider.sv            clock-divider counters
+  LEDDriver.sv                supplied display driver and its original benches
+  run_regressions.do          automatic pass/fail ModelSim runner
+  runlab.do / *_wave.do       original GUI waveform workflow
+  wave.do                    additional saved waveform setup
+  Launch_ModelSim.bat         optional Windows launcher
+  tests/                     focused self-checking regression source
 ```
-
-Additional original documentation: [design description](docs/Description.pdf), [FSM](docs/FSM.pdf), [product explanation](docs/product%20explanation.docx), and [market/usability discussion](docs/market%26usability.docx).
 
 ## Authorship and attribution
 
