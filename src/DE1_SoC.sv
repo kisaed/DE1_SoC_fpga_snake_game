@@ -1,7 +1,3 @@
-// Kevin Xu
-// Due 3/15/2026
-// Class: EE271
-
 // Top module for DE1_SoC board, runs a snake game using the 16 by 16 led matrix on the GPIO connector. 
 // 
 // player moves the snake with KEY 1 as left, KEY0 as right, KEY3 as up, and KEY2 as down. 

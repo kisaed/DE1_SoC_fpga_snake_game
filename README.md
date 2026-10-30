@@ -4,11 +4,11 @@ A Snake game written in SystemVerilog for a Cyclone V FPGA and a **16 x 16 red/g
 
 **SystemVerilog | RTL design | FPGA integration | ModelSim | Quartus**
 
-[Original course demo (Google Drive)](https://drive.google.com/file/d/1CN-mWC4AAOlfzIJFyAhdpNwsDBxydqpY/view?usp=sharing) · [Architecture](#architecture) · [Run the tests](#run-the-tests) · [Hardware setup](#hardware-setup) · [Known limitations](#known-limitations)
+[Hardware demo](https://drive.google.com/file/d/1CN-mWC4AAOlfzIJFyAhdpNwsDBxydqpY/view?usp=sharing) · [Architecture](#architecture) · [Run the tests](#run-the-tests) · [Hardware setup](#hardware-setup) · [Known limitations](#known-limitations)
 
-The original course demo is hosted externally; its availability depends on the file's sharing settings. The original project was built for **EE 271: Digital Circuits and Systems**, University of Washington, by **Ziqian (Kevin) Xu** in 2026.
+The hardware demonstration is hosted on Google Drive; access depends on the linked file's sharing settings.
 
-## What the project demonstrates
+## Design highlights
 
 - **Stateful game logic:** a 256-bit occupancy map and per-cell direction memory let the tail follow the head without shifting a full coordinate list on every move.
 - **Pseudo-random placement:** an 8-bit XNOR-feedback LFSR supplies candidate coordinates; the apple controller rejects occupied cells.
@@ -30,7 +30,7 @@ flowchart LR
     S -->|SnPos| A
     S -->|ateApple| A
     A -->|AplPos| S
-    S -->|green pixels| D["LEDDriver<br/>provided course driver"]
+    S -->|green pixels| D["LEDDriver<br/>externally supplied driver"]
     A -->|red pixels| D
     D --> G["GPIO_1<br/>16 x 16 red/green matrix"]
     S --> O["LEDR[0] game over"]
@@ -105,16 +105,16 @@ The runner compiles the design and [`src/tests/regression_testbench.sv`](src/tes
 
 These are directed checks, not exhaustive verification or a physical hardware validation.
 
-### Original waveform testbenches
+### Interactive waveform simulation
 
-The original course benches and waveform setups remain available. In the **ModelSim Transcript**, run:
+Open the saved waveform setups in the **ModelSim Transcript**:
 
 ```tcl
 do src/runlab.do
 do src/runlab.do apple
 ```
 
-The default selects `DE1_SoC_testbench`; an argument selects the corresponding module bench. `src/runlab.do` opens GUI waveform/structure/signal windows and runs until the bench stops. These older benches are primarily waveform stimuli; use the focused runner above for automatic pass/fail checks.
+The default selects `DE1_SoC_testbench`; an argument selects the corresponding module bench. `src/runlab.do` opens waveform, structure, and signal windows, then runs until the bench stops. These benches support interactive signal inspection; use the focused runner above for automatic pass/fail checks.
 
 `src/Launch_ModelSim.bat` is an optional Windows launcher that expects `vsim.exe` on `PATH` and starts ModelSim with the repository root as its working directory.
 
@@ -127,7 +127,7 @@ The default selects `DE1_SoC_testbench`; an argument selects the corresponding m
 
 On the hardware path, `ALTERA_RESERVED_QIS` selects `div_clk[9]` as the approximately 48.8 kHz base clock. A second divider uses bit 13 and an edge detector for the game tick. In simulation, the top level uses the testbench clock directly; the benches shorten the second divider.
 
-No fresh Quartus synthesis, fitting, static timing analysis, FPGA resource measurement, or board test was performed for this maintenance revision. The supplied [`DE1_SoC_golden_top.sdc`](DE1_SoC_golden_top.sdc) is a board template and is not evidence of timing closure.
+The recorded validation covers RTL simulation. Quartus synthesis, fitting, static timing analysis, FPGA resource measurements, and a board retest were not performed for this revision. The supplied [`DE1_SoC_golden_top.sdc`](DE1_SoC_golden_top.sdc) is a board template and is not evidence of timing closure.
 
 ## Known limitations
 
@@ -143,20 +143,20 @@ No fresh Quartus synthesis, fitting, static timing analysis, FPGA resource measu
 DE1_SoC.qpf / .qsf             Quartus project and board assignments
 DE1_SoC_golden_top.sdc         original board-template constraints
 src/
-  DE1_SoC.sv                  top-level integration and original game bench
+  DE1_SoC.sv                  top-level integration and game bench
   snake.sv / apple.sv         game state and apple placement
   LFSR.sv / userInput.sv      candidate generator and button processing
   clock_divider.sv            clock-divider counters
-  LEDDriver.sv                supplied display driver and its original benches
+  LEDDriver.sv                supplied display driver and its benches
   run_regressions.do          automatic pass/fail ModelSim runner
-  runlab.do / *_wave.do       original GUI waveform workflow
+  runlab.do / *_wave.do       interactive waveform workflow
   wave.do                    additional saved waveform setup
   Launch_ModelSim.bat         optional Windows launcher
   tests/                     focused self-checking regression source
 ```
 
-## Authorship and attribution
+## License and acknowledgments
 
-Kevin Xu wrote and tested the original course game logic. **`LEDDriver.sv` is provided course code**, and the board project/constraint templates retain their existing notices. The repository retains its existing [MIT license](LICENSE); third-party attribution and original notices are not replaced by that file.
+Original project source is available under the [MIT License](LICENSE). **`LEDDriver.sv` is an externally supplied display driver**. Board project and constraint templates retain their existing notices; third-party terms and attribution are not replaced by the project license.
 
-The October 2026 maintenance work includes AI-assisted code review, documentation, a focused regression suite, and a small occupancy-order fix validated in ModelSim. This does not imply that the supplied display driver was written by Kevin or that all hardware behavior has been verified.
+Code review, documentation, and regression tooling include AI-assisted contributions. The occupancy-order fix was validated in ModelSim; the verification scope and remaining hardware limitations are documented above.
