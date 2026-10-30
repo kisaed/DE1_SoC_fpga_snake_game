@@ -1,0 +1,12 @@
+# ModelSim generated files
+/work/
+/transcript
+/vsim.wlf
+/modelsim.ini
+/*.log
+
+# Quartus generated output
+/db/
+/incremental_db/
+/output_files/
+*.qws

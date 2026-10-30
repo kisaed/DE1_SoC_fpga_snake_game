@@ -1,1 +1,9 @@
-C:\intelFPGA_lite\17.0\modelsim_ase\win32aloem\modelsim.exe
+@echo off
+where vsim.exe >nul 2>&1
+if errorlevel 1 (
+    echo Start ModelSim manually, or add the folder containing vsim.exe to PATH.
+    echo In the ModelSim Transcript, run: do runlab.do
+    pause
+    exit /b 1
+)
+start "" vsim.exe

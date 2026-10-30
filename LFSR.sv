@@ -3,7 +3,7 @@
 //		clk - clock for the generator
 //		reset - resets the LFSR to all 0s
 // output
-//		out - 10-bit output that changes per clk cycle
+//		out - 8-bit output that changes per clk cycle
 module LFSR (clk, reset, out);
 	input logic clk, reset; 
 	output logic [7:0] out;
@@ -42,7 +42,7 @@ endmodule
 // testbench for the above LFSR module
 module LFSR_testbench ();
 	logic clk, reset;
-	logic [9:0] out;
+	logic [7:0] out;
 	
 	LFSR dut (.clk, .reset, .out);
 	
@@ -69,5 +69,3 @@ module LFSR_testbench ();
 	end
 	
 endmodule
-	
-		

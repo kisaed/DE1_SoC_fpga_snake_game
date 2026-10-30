@@ -45,11 +45,11 @@ module apple (update, randNum, SnPos, AplPos, reset, clk);
 endmodule
 
 module apple_testbench();
-	logic update, clk;
+	logic update, clk, reset;
 	logic [15:0][15:0] SnPos, AplPos;
 	logic [7:0] randNum;
 	
-	apple dut (.update, .randNum, .SnPos, .AplPos, .clk);
+	apple dut (.update, .randNum, .SnPos, .AplPos, .reset, .clk);
 	
 	parameter CLOCK_PERIOD = 100;
 	initial begin
@@ -58,10 +58,13 @@ module apple_testbench();
 	end
 	
 	initial begin
+	reset <= 1;
 	update <= 0;
 	randNum <= 8'b00000000;
 	SnPos <= '0;
 	@(posedge clk);
+	@(posedge clk);
+	reset <= 0;
 	@(posedge clk);
 	
 	//1

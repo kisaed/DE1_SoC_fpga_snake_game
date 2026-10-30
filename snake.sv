@@ -90,7 +90,6 @@ module snake (mov, clk, GT, reset, ateApple, gameOver, SnPos, AplPos);
 				end
 				else begin
 					dir[headY][headX] <= mov;
-					SnPos[nextHeadY][nextHeadX] <= 1'b1;
 					headY <= nextHeadY;
 					headX <= nextHeadX;
 					
@@ -107,6 +106,9 @@ module snake (mov, clk, GT, reset, ateApple, gameOver, SnPos, AplPos);
 						length <= length + 1'b1;
 						ateApple <= 1'b1;
 					end
+					// Set the head after clearing the departing tail. If both
+					// refer to the same cell, the new head must remain occupied.
+					SnPos[nextHeadY][nextHeadX] <= 1'b1;
 				end
 			end
 		end
@@ -175,4 +177,3 @@ module snake_testbench();
 	$stop;
 	end
 endmodule
-												

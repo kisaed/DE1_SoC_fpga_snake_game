@@ -1,5 +1,5 @@
-// User input module for tug of war game
-// outputs one cycle of true following the clock cycle per time the input is true
+// Two-flop input synchronizer followed by rising-edge pulse detection.
+// A held input produces one pulse; this does not filter mechanical switch bounce.
 // input
 //		Clock - clock to sync the input to
 //		reset - resets the input to all 0s
@@ -60,4 +60,3 @@ module userInput_testbench;
 	end
 
 endmodule
-	

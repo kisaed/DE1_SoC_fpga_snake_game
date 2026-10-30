@@ -1,136 +1,162 @@
-<div align="center">
+# FPGA Snake on the DE1-SoC
 
-# Snake — FPGA
+A Snake game written in SystemVerilog for a Cyclone V FPGA and a **16 x 16 red/green LED matrix**. The design implements movement, growth, wall/self collision, and apple placement directly in logic, without a soft CPU or operating system.
 
-A classic snake game in SystemVerilog, running on the 16×16 RGB LED matrix of a Terasic DE1-SoC board.
+**SystemVerilog | RTL design | FPGA integration | ModelSim | Quartus**
 
-**SystemVerilog · Intel Quartus Prime · ModelSim · Terasic DE1-SoC (Cyclone V SoC)**
+[Original course demo (Google Drive)](https://drive.google.com/file/d/1CN-mWC4AAOlfzIJFyAhdpNwsDBxydqpY/view?usp=sharing) · [Architecture](#architecture) · [Run the tests](#run-the-tests) · [Hardware setup](#hardware-setup) · [Known limitations](#known-limitations)
 
-[Features](#features) · [How to Play](#how-to-play) · [Requirements](#requirements) · [Architecture](#architecture) · [Getting Started](#getting-started) · [Project Structure](#project-structure) · [Documentation](#documentation)
+The demo link is taken from the existing [course video document](docs/Video%20Demo.docx); its availability depends on the external file's sharing settings. The original project was built for **EE 271: Digital Circuits and Systems**, University of Washington, by **Ziqian (Kevin) Xu** in 2026.
 
-</div>
+## What the project demonstrates
 
-The game is fully implemented in combinational/sequential SystemVerilog — no soft CPU, no operating system. An 8-bit LFSR seeds apple placement, keys are debounced at the register level, and the whole design compiles to a single Cyclone V configuration.
-
-## Features
-
-- **16×16 RGB LED matrix display** — green snake, red apple, driven row-by-row through the board's GPIO header
-- **Pseudo-random apple placement** — an 8-bit LFSR proposes positions; cells occupied by the snake are rejected until a free spot is found
-- **Debounced controls** — each key press is captured as a clean single-cycle pulse; 180° reversals are ignored
-- **Collision detection** — walls and the snake's own body (tracked via a per-cell direction memory, so the tail follows without storing the full body)
-- **Reset & game-over** — a hardware switch resets the game; `LEDR[0]` lights on game over
-- **Sim/board clock switching** — the top module detects `ALTERA_RESERVED_QIS` to pick the hardware clock-divider chain on the board or the fast testbench clock in simulation
-- **Testbenches throughout** — the top-level testbench scripts a full game (movement, rejected reversals, simultaneous key presses); `apple`, `snake`, `LFSR`, and `userInput` each ship with their own
-
-## How to Play
-
-Move the green snake to eat the red apple. Each apple grows the snake by one. Hitting a wall or your own body ends the game.
-
-| Board element | Function |
-|---------------|----------|
-| `KEY[0]` | Move right |
-| `KEY[1]` | Move left |
-| `KEY[2]` | Move down |
-| `KEY[3]` | Move up |
-| `SW[9]` | Reset game |
-| `LEDR[0]` | Game-over indicator |
-
-On hardware the snake moves roughly every 330 ms (≈3 moves/second).
-
-## Requirements
-
-### Hardware
-
-| Item | Notes |
-|------|-------|
-| Terasic DE1-SoC board (Cyclone V) | Uses `KEY[0..3]` (movement), `SW[9]` (reset), `LEDR[0]` (game over), and the 50 MHz board clock |
-| 16×16 RGB LED matrix expansion board | Connects to the board's 36-pin `GPIO1` header (e.g. Terasic's LED matrix add-on for the DE1-SoC) |
-
-Simulation requires no special hardware — any computer with ModelSim is enough.
-
-### Software
-
-| Tool | Version used | Needed for |
-|------|--------------|------------|
-| Intel Quartus Prime | 17.0.0 Lite Edition | Building and programming the FPGA (any recent Quartus with Cyclone V support works) |
-| ModelSim (SE is fine) | 17.0 SE, bundled with Quartus | Running the testbenches (any ModelSim with SystemVerilog support works) |
-| SystemVerilog (IEEE 1800) | — | The design and testbenches are written in SystemVerilog |
+- **Stateful game logic:** a 256-bit occupancy map and per-cell direction memory let the tail follow the head without shifting a full coordinate list on every move.
+- **Pseudo-random placement:** an 8-bit XNOR-feedback LFSR supplies candidate coordinates; the apple controller rejects occupied cells.
+- **Input processing:** two-flop synchronization followed by rising-edge detection produces a one-clock pulse for a held key. This is **not a mechanical-bounce filter**.
+- **Control and integration:** the top level chooses movement direction, rejects a direct opposite-direction input, generates game ticks, and connects the supplied display driver.
+- **Simulation:** a self-checking regression suite exercises movement, growth, tail-cell reuse, collision/reset behavior, apple placement, input pulses, the LFSR period, and selected top-level controls.
 
 ## Architecture
 
-![System layout — modules and signal flow](docs/layout-diagram.svg)
+```mermaid
+flowchart LR
+    K["KEY[3:0] active-low buttons"] --> U["userInput<br/>synchronize + edge pulse"]
+    U --> M["Direction selection<br/>and reversal filter"]
+    M --> S["snake<br/>head / tail / body state"]
+    C["CLOCK_50"] --> T["Clock dividers<br/>and one-cycle game tick"]
+    T --> S
+    T --> L["8-bit LFSR"]
+    L --> A["apple<br/>reject occupied candidates"]
+    S -->|SnPos| A
+    S -->|ateApple| A
+    A -->|AplPos| S
+    S -->|green pixels| D["LEDDriver<br/>provided course driver"]
+    A -->|red pixels| D
+    D --> G["GPIO_1<br/>16 x 16 red/green matrix"]
+    S --> O["LEDR[0] game over"]
+```
 
-The three signals between `snake` and `apple` form the game loop: the snake's body tells the apple module which cells are occupied, `ateApple` triggers a respawn, and the new `AplPos` feeds back into collision checks. For the full original block diagram, see [docs/Block Diagram Updated.pdf](docs/Block%20Diagram%20Updated.pdf).
+For the detailed signal layout, see the [SVG diagram](docs/layout-diagram.svg) and [original block diagram](docs/Block%20Diagram%20Updated.pdf). Reset/clock connections omitted above are described in [known limitations](#known-limitations).
 
-| Module | File | Responsibility |
-|--------|------|----------------|
-| `DE1_SoC` | `DE1_SoC.sv` | Top level — clock tree, movement direction lock-out, game-tick generation, module wiring |
-| `snake` | `snake.sv` | Game core — head/tail movement, wall & self collision, growth |
-| `apple` | `apple.sv` | Apple placement — samples the LFSR and rejects snake-occupied cells |
-| `LFSR` | `LFSR.sv` | 8-bit LFSR pseudo-random number generator (taps 8, 6, 5, 4) |
-| `userInput` | `userInput.sv` | Debounces a key press into a one-cycle pulse |
-| `clock_divider` | `clock_divider.sv` | 32-bit free-running counter whose bits are divided clocks |
-| `LEDDriver` | `LEDDriver.sv` | Row-scan driver for the 16×16×2 LED matrix expansion board |
+| Module | Responsibility |
+|---|---|
+| [`DE1_SoC`](DE1_SoC.sv) | Board interface, clock selection, tick edge detector, direction selection, module wiring |
+| [`snake`](snake.sv) | Head/tail updates, occupancy, direction memory, growth, wall/self collision |
+| [`apple`](apple.sv) | Update-edge detection and free-cell search using LFSR candidates |
+| [`LFSR`](LFSR.sv) | Eight-bit XNOR-feedback generator, taps 8/6/5/4 |
+| [`userInput`](userInput.sv) | Input synchronization and rising-edge pulse generation |
+| [`clock_divider`](clock_divider.sv) | Counter bits used as divided clocks |
+| [`LEDDriver`](LEDDriver.sv) | Supplied row-scan driver mapping red/green pixel arrays to GPIO |
 
-Clocking on the board: the 50 MHz clock feeds a counter whose bit 9 (~48.8 kHz) is the base game clock; a second divider chain produces the ~3 Hz game tick (`GT`). In simulation the base clock is the 10 MHz testbench clock and the tick divider is sped up with a `defparam`.
+### How the body moves
 
-> [!NOTE]
-> `LEDDriver.sv` is the provided driver for the LED matrix expansion board. It maps two 16×16 pixel arrays (`RedPixels`, `GrnPixels`) to the GPIO header and handles the row scanning.
+For each occupied cell, `dir[y][x]` records where the next body segment lies. When the head leaves a cell, its movement direction is written there; the tail reads that stored direction to find its next cell.
 
-## Getting Started
+```mermaid
+flowchart TD
+    Tick["Game tick while alive"] --> Next["Compute next head and wall collision"]
+    Next --> Grow["Is there an apple at the next cell?"]
+    Grow --> Collision["Check occupied cell<br/>Departing tail is allowed only when not growing"]
+    Collision -->|collision| Over["Latch game over; keep body unchanged"]
+    Collision -->|legal move| Head["Store direction at old head<br/>Advance head"]
+    Head --> Choice{"Growing?"}
+    Choice -->|yes| Keep["Keep tail; increment length<br/>Pulse ateApple"]
+    Choice -->|no| Tail["Clear old tail<br/>Advance tail along stored direction"]
+    Keep --> Set["Set new head occupancy"]
+    Tail --> Set
+```
 
-### Simulation (ModelSim)
+Setting the new head **after** clearing the old tail matters when both refer to the same cell. The focused regression reproduces the original overwrite error and protects this legal move.
 
-Any ModelSim version works (developed with v17.0 SE):
+## Controls
 
-```bash
-# from the repository root
+| Board element | Function |
+|---|---|
+| `KEY[0]` | Right |
+| `KEY[1]` | Left |
+| `KEY[2]` | Down |
+| `KEY[3]` | Up |
+| `SW[9]` | Reset input; see board-reset caveat below |
+| `LEDR[0]` | Game over |
+
+The snake is green and the apple is red. Eating grows the snake by one cell; wall or non-tail body collisions end the game. Simultaneous input priority is right, left, up, down.
+
+With the current divider parameters, the nominal hardware game tick is about **2.98 Hz**, or one move every **336 ms**. This is calculated from the 50 MHz input and divider taps, not a new hardware measurement.
+
+## Run the tests
+
+The focused suite was run on **October 29, 2026** using **ModelSim ALTERA STARTER EDITION 10.5b**, installed with the Intel FPGA 17.0 tool distribution. It compiled and completed with **zero errors and zero warnings**. See [verification notes](docs/verification.md) for scope and the reproduced bug.
+
+From the repository root, with `vsim` on your path:
+
+```powershell
+vsim -c -do run_regressions.do
+```
+
+The runner compiles the design and [`tests/regression_testbench.sv`](tests/regression_testbench.sv), runs for a bounded 10 microseconds, checks a completion flag, and returns a nonzero exit status on a failed check or incomplete run.
+
+| Check group | Examples covered |
+|---|---|
+| Snake core | Reset, no-tick stability, movement, growth, one-cycle apple pulse, departing-tail reuse, self collision, four walls, game-over freeze |
+| Apple controller | Known reset position, occupied-cell rejection, free-cell selection, held-update edge behavior |
+| Input processing | One pulse for a held input and another for a later rising edge |
+| LFSR | Known reset state and a 255-state cycle without repeats |
+| Simulation top level | Reset, direct reversal rejection, perpendicular turn, simultaneous-key priority, unused seven-segment outputs |
+
+These are directed checks, not exhaustive verification or a physical hardware validation.
+
+### Original waveform testbenches
+
+The original course benches and waveform setups remain available. In the **ModelSim Transcript**, run:
+
+```tcl
 do runlab.do
+do runlab.do apple
 ```
 
-`runlab.do` compiles every `.sv` file in the folder, runs the `DE1_SoC_testbench`, opens the signal/waveform/structure windows, and runs the simulation to completion. `Launch_ModelSim.bat` simply opens ModelSim.
+The default selects `DE1_SoC_testbench`; an argument selects the corresponding module bench. `runlab.do` opens GUI waveform/structure/signal windows and runs until the bench stops. These older benches are primarily waveform stimuli; use the focused runner above for automatic pass/fail checks.
 
-Per-module waveform setups live in the `*_wave.do` files.
+`Launch_ModelSim.bat` is an optional Windows launcher that expects `vsim.exe` on `PATH`; it no longer assumes a personal installation directory.
 
-> [!TIP]
-> `runlab.do` takes an optional argument — `do runlab.do apple` runs the `apple` module's testbench with its waveform view.
+## Hardware setup
 
-### Hardware (Quartus Prime)
+1. Use a Terasic **DE1-SoC**, device **5CSEMA5F31C6**, and a compatible **16 x 16 two-color red/green** LED matrix connected to `GPIO_1`.
+2. Open [`DE1_SoC.qpf`](DE1_SoC.qpf) in Quartus with Cyclone V support. The project file records Quartus Prime Lite **17.0**; that is a Quartus version, not a ModelSim version.
+3. Inspect the pin assignments and matrix wiring for your exact hardware. The QSF retains board-template pin assignments; its source list contains the seven design files in this repository.
+4. Compile, inspect diagnostics/timing constraints, and program the board. Recheck reset and display behavior on the board before relying on a new bitstream.
 
-1. Open `DE1_SoC.qsf` in Quartus Prime (developed with v17.0).
-2. Compile and program the DE1-SoC board (Cyclone V).
-3. Play: `KEY[0..3]` to steer, `SW[9]` to reset, watch `LEDR[0]` for game over.
+On the hardware path, `ALTERA_RESERVED_QIS` selects `div_clk[9]` as the approximately 48.8 kHz base clock. A second divider uses bit 13 and an edge detector for the game tick. In simulation, the top level uses the testbench clock directly; the benches shorten the second divider.
 
-The SDC constraints are in `DE1_SoC_golden_top.sdc`.
+No fresh Quartus synthesis, fitting, static timing analysis, FPGA resource measurement, or board test was performed for this maintenance revision. The supplied [`DE1_SoC_golden_top.sdc`](DE1_SoC_golden_top.sdc) is a board template and is not evidence of timing closure.
 
-## Project Structure
+## Known limitations
 
+- **Board reset needs revalidation.** The hardware base clock comes from a divider that is itself held reset by `SW[9]`, while downstream blocks use synchronous reset. This can prevent downstream reset sampling while reset is held. The supplied LED driver's reset/count priority also needs board-level review. Focused simulation uses the direct-clock path and does not prove hardware reset correctness.
+- **No mechanical debounce interval.** Synchronization and edge detection do not guarantee that a bouncing switch produces only one event.
+- **Rapid turns between ticks.** The reversal filter compares against the most recently accepted direction, rather than latching one turn per completed movement. Multiple turns within one game-tick interval need further testing/refinement.
+- **Finite placement sequence.** The XNOR LFSR has 255 states and excludes `8'hff`, so cell `(15,15)` is the reset apple location but is not proposed again by the generator. There is no explicit full-board win/termination path.
+- **Timing is uncharacterized in this revision.** The original divided-clock design is preserved; a future single-clock/clock-enable implementation could simplify reset and timing analysis.
+
+## Repository guide
+
+```text
+DE1_SoC.sv                 top-level integration and original game bench
+snake.sv / apple.sv        game state and apple placement
+LFSR.sv / userInput.sv     candidate generator and button processing
+clock_divider.sv           clock-divider counters
+LEDDriver.sv               supplied display driver and its original benches
+DE1_SoC.qpf / .qsf         Quartus project and board assignments
+DE1_SoC_golden_top.sdc     original board-template constraints
+run_regressions.do         automatic pass/fail ModelSim runner
+tests/                    focused self-checking regressions
+runlab.do / *_wave.do      original GUI waveform workflow
+docs/                     original reports, diagrams, demo link, verification notes
 ```
-.
-├── DE1_SoC.sv              # Top module + full-game testbench
-├── snake.sv                # Game core
-├── apple.sv                # Apple placement
-├── LFSR.sv                 # Pseudo-random number generator
-├── userInput.sv            # Debounced key input
-├── clock_divider.sv        # Clock division tree
-├── LEDDriver.sv            # LED matrix driver (provided)
-├── DE1_SoC.qpf / .qsf      # Quartus project files
-├── DE1_SoC_golden_top.sdc  # Timing constraints
-├── runlab.do               # ModelSim run script
-├── *_wave.do               # Per-module waveform setups
-├── Launch_ModelSim.bat
-└── docs/                   # Design description, FSM, block diagrams, product docs
-```
 
-## Documentation
+Additional original documentation: [design description](docs/Description.pdf), [FSM](docs/FSM.pdf), [product explanation](docs/product%20explanation.docx), and [market/usability discussion](docs/market%26usability.docx).
 
-- [Layout diagram (SVG)](docs/layout-diagram.svg)
-- [Design description](docs/Description.pdf)
-- [FSM design](docs/FSM.pdf)
-- [Block diagram](docs/Block%20Diagram%20Updated.pdf)
-- [Product explanation](docs/product%20explanation.docx)
-- [Market & usability analysis](docs/market%26usability.docx)
+## Authorship and attribution
 
-## Author
+Kevin Xu wrote and tested the original course game logic. **`LEDDriver.sv` is provided course code**, and the board project/constraint templates retain their existing notices. The repository retains its existing [MIT license](LICENSE); third-party attribution and original notices are not replaced by that file.
 
-Built as the final project for **ECE 271 — Digital Design**, University of Washington, by **Kevin Xu** (2026).
+The October 2026 maintenance work includes AI-assisted code review, documentation, a focused regression suite, and a small occupancy-order fix validated in ModelSim. This does not imply that the supplied display driver was written by Kevin or that all hardware behavior has been verified.

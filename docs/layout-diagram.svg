@@ -136,7 +136,7 @@
     <text x="1165" y="154" font-size="9.5" text-anchor="middle" class="s">game over</text>
 
     <rect x="1090" y="340" width="150" height="60" rx="8" class="io"/>
-    <text x="1165" y="366" font-size="13" font-weight="bold" text-anchor="middle" class="t">16×16 RGB</text>
+    <text x="1165" y="366" font-size="13" font-weight="bold" text-anchor="middle" class="t">16×16 red/green</text>
     <text x="1165" y="384" font-size="9.5" text-anchor="middle" class="s">LED matrix</text>
   </g>
 
@@ -172,7 +172,7 @@
     <rect x="200" y="280" width="170" height="72" rx="8" class="box"/>
     <rect x="200" y="280" width="5" height="72" rx="2.5" class="lb-o"/>
     <text x="285" y="304" font-size="14" font-weight="bold" text-anchor="middle" class="t">userInput ×4</text>
-    <text x="285" y="320" font-size="10.5" text-anchor="middle" class="s">1-cycle debounce pulse</text>
+    <text x="285" y="320" font-size="10.5" text-anchor="middle" class="s">sync + 1-cycle edge pulse</text>
     <text x="285" y="336" font-size="10.5" text-anchor="middle" class="s">clk: clkSelect</text>
 
     <rect x="640" y="280" width="180" height="110" rx="8" class="box"/>
